@@ -4,7 +4,9 @@ library(dismo)
 library(rJava)
 library(tidyverse)
 library(sf)
-NM <- read.csv("./fishing/Future Prediction/Objects/2.05 NM_fishing_sediment_ports_ridge.csv",header = TRUE) %>% 
+# NM <- read.csv("./fishing/Future Prediction/Objects/2.05 NM_fishing_sediment_ports_ridge.csv",header = TRUE) %>% 
+#   subset(select = -c(Zonal,Meridional)) #load data
+NM <- read.csv("./fishing/Future Prediction/Objects/2.02 NM_fishing.csv",header = TRUE) %>% 
   subset(select = -c(Zonal,Meridional)) #load data
 cutoff <- seq(0.1,1,0.1)
 years <- seq(2012,2019)
@@ -23,8 +25,10 @@ for (i in seq_along(partition)) {
   #prep data for model
   NM_coords <- data.frame(fishing = train$fishing) #get fishing data for training
   NM_coords_vector <- as.vector(NM_coords[,1]) #...as a vector
+  # NM_predictors <- train %>% subset(select = c(Salinity,Temperature,Ice_Thickness,
+  #                                           Bathymetry,ice,distance_to_ridge)) #define predictors
   NM_predictors <- train %>% subset(select = c(Salinity,Temperature,Ice_Thickness,
-                                            Bathymetry,ice,distance_to_ridge)) #define predictors
+                                               Bathymetry,Ice_conc)) #define predictors for NEMO experiment
   #run model
   habitat_model <- maxent(x = NM_predictors,p = NM_coords_vector) #run model
   result_list[[i]] <- habitat_model@results #save results *AUC/permutation importance*
@@ -32,14 +36,14 @@ for (i in seq_along(partition)) {
   #test model on unseen data
   test_fishing <- test$fishing #store fishing for check
   test_validation <- test %>% subset(select = c(Salinity,Temperature,Ice_Thickness,
-                                          Bathymetry,ice,distance_to_ridge)) #pull validation set
+                                          Bathymetry,Ice_conc)) #pull validation set
   prediction <- predict(object = habitat_model,x = test_validation) #predict fishing - probability of fishing
   percentage_matching_test <- data.frame(year = rep(years[i],length(cutoff)),
                                                     cutoffs = cutoff,
                                                     percentage = rep(1,length(cutoff)))
   #calculate percentage for test
   for (j in seq_along(cutoff)) {
-    rounded_prediction <- ifelse(prediction > cutoff[j], 1, 0) #convert to binary#round prediction based on cutoff
+    rounded_prediction <- ifelse(prediction < cutoff[j], 0, 1) #convert to binary#round prediction based on cutoff
     validation_df <- data.frame(actual = test_fishing,
                                 prediction = rounded_prediction) #creates actual v prediction
     matching_entries <- sum(validation_df$actual == validation_df$prediction) #how many of these entries match?
@@ -52,14 +56,14 @@ for (i in seq_along(partition)) {
   #test model on training data
   train_fishing <- train$fishing #store fishing for check
   train_validation <- train %>% subset(select = c(Salinity,Temperature,Ice_Thickness,
-                                                Bathymetry,ice,distance_to_ridge)) #pull validation set
+                                                Bathymetry,Ice_conc)) #pull validation set
   prediction <- predict(object = habitat_model,x = train_validation) #predict fishing - probability of fishing
   percentage_matching_train <- data.frame(year = rep(years[i],length(cutoff)),
                                          cutoffs = cutoff,
                                          percentage = rep(1,length(cutoff)))
   #calculate percentage for test
   for (j in seq_along(cutoff)) {
-    rounded_prediction <- ifelse(prediction > cutoff[j], 1, 0) #round prediction based on cutoff
+    rounded_prediction <- ifelse(prediction < cutoff[j], 0, 1) #round prediction based on cutoff
     validation_df <- data.frame(actual = train_fishing,
                                 prediction = rounded_prediction) #creates actual v prediction
     matching_entries <- sum(validation_df$actual == validation_df$prediction) #how many of these entries match?
@@ -67,8 +71,8 @@ for (i in seq_along(partition)) {
     percentage_matching <- (matching_entries / total_entries) * 100 #and what is that as a percentage?
     percentage_matching_train$percentage[j] <- percentage_matching
   }
-  percentage_train_list[[i]] <- percentage_matching_test
+  percentage_train_list[[i]] <- percentage_matching_train
 }
-saveRDS(result_list,"./fishing/Future Prediction/Objects/k-fold model results.RDS")
-saveRDS(percentage_test_list,"./fishing/Future Prediction/Objects/k-fold percentage matching test data.RDS")
-saveRDS(percentage_train_list,"./fishing/Future Prediction/Objects/k-fold percentage matching train data.RDS")
+saveRDS(result_list,"./fishing/Future Prediction/Objects/k-fold model results NEMO-ice.RDS")
+saveRDS(percentage_test_list,"./fishing/Future Prediction/Objects/k-fold percentage matching test data NEMO-ice.RDS")
+saveRDS(percentage_train_list,"./fishing/Future Prediction/Objects/k-fold percentage matching train data NEMO-ice.RDS")

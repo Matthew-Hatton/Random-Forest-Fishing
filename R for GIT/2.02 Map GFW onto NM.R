@@ -1,9 +1,10 @@
 ## nearest neighbour on points
 rm(list = ls()) #reset
+library(furrr)
 GFW_mean <- read.csv("./fishing/Future Prediction/Objects/cropped GFW/GFW_mean_all_years.csv") %>% 
   st_as_sf(coords = c("longitude","latitude"),crs = 3035) #read in yearly GFW means
 GFW_list <- split(GFW_mean,list(GFW_mean$year,GFW_mean$month)) #split by year and month
-NM <- list.files("./fishing/Future Prediction/NEMO output", pattern = "\\.201[2-9]\\.rds$", full.names = TRUE) %>% 
+NM <- list.files("./fishing/Future Prediction/NEMO output", pattern = "\\.209[2-9]\\.rds$", full.names = TRUE) %>% 
   future_map(.,.f = readRDS) #read in files - each element is its own month
 
 for (i in seq_along(NM)) {
